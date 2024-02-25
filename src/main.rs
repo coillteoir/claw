@@ -1,23 +1,25 @@
 use std::env;
 
-struct Flag<T> {
+#[derive(Clone)]
+struct Flag {
     name: String,
     shorthand: String,
     description: String,
-    value: T,
-    default: T,
+    value: String,
+    default: String,
 }
 
 #[derive(Clone)]
 struct Command {
     name: String,
     description: String,
-    logic: fn() -> Result<String, String>,
+    flags: Vec<Flag>,
+    logic: fn(Vec<String>) -> Result<String, String>,
 }
 
 impl Command {
-    fn run(&self) -> Result<String, String> {
-        (self.logic)()
+    fn run(&self, args: Vec<String>) -> Result<String, String> {
+        (self.logic)(args)
     }
 }
 
@@ -26,44 +28,63 @@ fn main() {
         Command {
             name: String::from("root"),
             description: String::from("this command says hello"),
-            logic: || {
+            logic: |_| {
                 println!("Hello world");
                 Ok(String::from("hello hello"))
             },
+            flags: Vec::<Flag>::new(),
         },
         Command {
             name: String::from("doink"),
             description: String::from("shakaboink"),
-            logic: || {
+            logic: |_| {
                 println!("skaboink");
                 Ok(String::from("hehe"))
             },
+            flags: [Flag {
+                name: String::from("init"),
+                shorthand: String::from("i"),
+                description: String::from("initializes a sandwich"),
+                default: String::from("0"),
+                value: String::from("0"),
+            }]
+            .to_vec(),
         },
     ];
 
     let args: Vec<String> = env::args().collect();
-    parse(args.clone());
-    if args.len() == 1 {
-        commands[0].run();
+
+    if args.len() < 2 {
+        let _ = commands[0].run(Vec::<String>::new());
         return;
     }
 
-    let _ = commands
+    if args[1] == "help" {
+        print_help(commands.to_vec());
+        return;
+    }
+
+    let to_run = commands
         .into_iter()
         .filter(|command: &Command| args[1] == command.name)
-        .collect::<Vec<Command>>()[0]
-        .run();
+        .collect::<Vec<Command>>();
+
+    if to_run.len() == 1 {
+        let _ = to_run[0].run(Vec::<String>::new());
+    }
 }
 
 fn print_help(commands: Vec<Command>) {
     commands.into_iter().for_each(|command| {
         println!(
-            "Name: {}\nDescription: {}",
+            "Command: {} Description: {}",
             command.name, command.description
-        )
+        );
+        command.flags.into_iter().for_each(|flag| {
+            println!(
+                "Flag: --{} -{} Description: {} Default: {}",
+                flag.name, flag.shorthand, flag.description, flag.default
+            )
+        })
     })
-}
-
-fn parse(args: Vec<String>) {
-    args.into_iter().for_each(|item| println!("Item: {}", item))
 }
